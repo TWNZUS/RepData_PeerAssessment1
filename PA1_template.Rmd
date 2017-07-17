@@ -1,25 +1,111 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
-
-
-## Loading and preprocessing the data
 
 
 
-## What is mean total number of steps taken per day?
+
+## 1.)  Code for reading in the dataset and/or processing the data
+```{r echo=TRUE}
+library("sqldf")
+
+MyData <- read.csv(file="activity.csv", header=TRUE, sep=",")
+
+```
+
+## 2.)Histogram of the total number of steps taken each day
+```{r echo=TRUE}
+library("sqldf")
+
+temp <- sqldf("Select date, sum(steps) From MyData group by date")
+temp$`sum(steps)` <- as.numeric(temp$`sum(steps)`)
+
+hist(temp$`sum(steps)`, main = "Histogram of the total number of steps taken each day", xlab = "Steps" )
+```
+
+## 3.) Mean and median number of steps taken each day
+```{r echo=TRUE}
+myFun <- function(x) { c(mean = mean(x), median = median(x))}
+
+tapply(MyData$steps,MyData$date , myFun)
+
+```
+
+
+## 4.) Time series plot of the average number of steps taken
+```{r echo=TRUE}
+library("sqldf")
+
+temp3 <- sqldf("Select date, Avg(steps) From MyData group by date")
+colnames(temp3)[2] <- "Avg_Steps"
+
+temp3$date <- as.Date(temp3$date, "%Y-%m-%d")
+plot(Avg_Steps ~ date, temp3, type = "l")
+
+```
+
+
+##  5.) The 5-minute interval that, on average, contains the maximum number of steps
+```{r echo=TRUE}
+library("sqldf")
+
+temp4 <- sqldf("Select interval, Avg(steps) From MyData group by interval")
+colnames(temp4)[2] <- "Avg_Steps"
+sqldf("Select interval, Avg_Steps From temp4 where Avg_Steps = ( select Max(Avg_Steps) From temp4)")
+```
+
+##  6.) Code to describe and show a strategy for imputing missing data
+
+    6.1 total number of missing values in the dataset (i.e. the total number of rows with NAs)
+    
+```{r echo=TRUE}
+
+sqldf("Select count(interval) From MyData where steps is null ")
+
+```
+
+   6.2 filling in all of the missing values in the dataset with mean for that 5-minute interval.
+
+```{r echo=TRUE}
+library("sqldf")
+library("dplyr")
+
+MyData2 <- sqldf("Select MyData.*, temp4.Avg_Steps From MyData, temp4 where MyData.interval = temp4.interval  ")
+
+MyData2 <- mutate( MyData2 , steps =  ifelse( is.na(steps) ,Avg_Steps, steps  )  )
+MyData2 <- sqldf(" Select  steps , date, interval From  MyData2 "  )
+head(MyData2)
+
+```
+
+##  7.) Histogram of the total number of steps taken each day after missing values are imputed
+```{r echo=TRUE}
+library("sqldf")
+
+temp5 <- sqldf("Select date, sum(steps) From MyData2 group by date")
+temp5$`sum(steps)` <- as.numeric(temp5$`sum(steps)`)
+hist(temp5$`sum(steps)`, main = "Histogram of the total number of steps taken each day", xlab = "Steps")
+```
+
+##  8.)Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r echo=TRUE}
+
+library("sqldf")
+library("dplyr")
+
+par(mfrow=c(1,2)) 
+temp6 <- mutate( MyData2 , WeekDay =  weekdays( as.Date( date))  )
+
+temp7 <- sqldf("Select interval, Avg(steps) From temp6 Where WeekDay in ( 'Monday','Tuesday' ,'Wednesday', 'Thursday','Friday')  group by interval")
+colnames(temp7)[2] <- "Steps"
+plot(temp7, main='weekdays',type = "l" )
+
+temp8 <- sqldf("Select interval, Avg(steps) From temp6 Where WeekDay in ( 'Saturday', 'Sunday')  group by interval")
+colnames(temp8)[2] <- "Steps"
+plot(temp8, main='weekends',type = "l" )
+
+```
 
 
 
-## What is the average daily activity pattern?
 
 
 
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
